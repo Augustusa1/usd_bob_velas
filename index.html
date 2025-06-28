@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación de Mercado Forex - USD/BOB</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #131722;
+            color: #D1D4DC;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #FFFFFF;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+        }
+
+        p {
+            font-size: 0.9rem;
+            color: #787B86;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        #chart-container {
+            position: relative;
+            background-color: #1A1E29;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 1200px;
+            box-sizing: border-box;
+        }
+
+        .axis-label {
+            fill: #B2B5BE;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .tick line {
+            stroke: #2A2E39;
+            stroke-dasharray: 2,2;
+        }
+
+        .tick text {
+            fill: #787B86;
+            font-size: 11px;
+        }
+
+        .domain {
+            stroke: #494949;
+        }
+        
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 10px;
+            font-size: 12px;
+            background: #2A2E39;
+            border: 1px solid #363A45;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            color: #D1D4DC;
+            white-space: nowrap;
+        }
+        .tooltip-date {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #FFFFFF;
+        }
+        .tooltip-info span {
+            display: inline-block;
+            min-width: 50px;
+            font-weight: bold;
+        }
+        .tooltip-info .value {
+            font-weight: normal;
+            margin-left: 5px;
+        }
+        .color-up { color: #26A69A; }
+        .color-down { color: #EF5350; }
+        
+        .crosshair {
+            stroke: #787B86;
+            stroke-width: 1px;
+            stroke-dasharray: 3,3;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Análisis de Mercado Forex - USD/BOB</h1>
+    <p>Simulación del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
+
+    <div id="chart-container">
+        <svg id="candlestick-chart"></svg>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const csvData = `Fecha,Compra,Venta
+28/05/2024,9.1,9.2
+29/05/2024,9.05,9.15
+30/05/2024,9,9.1
+31/05/2024,8.95,9.05
+01/06/2024,8.95,9.05
+02/06/2024,8.95,9.05
+03/06/2024,8.95,9.05
+04/06/2024,8.98,9.08
+05/06/2024,9,9.1
+06/06/2024,9.02,9.12
+07/06/2024,9.05,9.15
+08/06/2024,9.05,9.15
+09/06/2024,9.05,9.15
+10/06/2024,9.08,9.18
+11/06/2024,9.1,9.2
+12/06/2024,9.12,9.22
+13/06/2024,9.15,9.25
+14/06/2024,9.15,9.25
+15/06/2024,9.15,9.25
+16/06/2024,9.15,9.25
+17/06/2024,9.18,9.28
+18/06/2024,9.2,9.3
+19/06/2024,9.22,9.32
+20/06/2024,9.25,9.35
+21/06/2024,9.25,9.35
+22/06/2024,9.25,9.35
+23/06/2024,9.25,9.35
+24/06/2024,9.28,9.38
+25/06/2024,9.3,9.4
+26/06/2024,9.3,9.4
+27/06/2024,9.32,9.42`;
+
+        // --- CHART SETUP ---
+        const container = document.getElementById('chart-container');
+        const margin = {top: 20, right: 60, bottom: 40, left: 60};
+        let width, height;
+
+        const svg = d3.select("#candlestick-chart");
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        // --- DATA PROCESSING ---
+        function simulateIntradayData(dailyData) {
+            const intradayData = [];
+            const intervals = 6; // 6 intervals of 4 hours = 24 hours
+            
+            let lastClose = +dailyData[0].Compra;
+
+            dailyData.forEach(day => {
+                const dayDate = d3.timeParse("%d/%m/%Y")(day.Fecha);
+                if (!dayDate) return;
+
+                const dailyOpen = lastClose;
+                const dailyClose = +day.Venta;
+
+                let intervalOpen = dailyOpen;
+
+                for (let i = 0; i < intervals; i++) {
+                    const intervalDate = d3.timeHour.offset(dayDate, i * 4);
+                    
+                    let intervalClose;
+                    if (i === intervals - 1) {
+                        intervalClose = dailyClose;
+                    } else {
+                        const progress = (i + 1) / intervals;
+                        const target = dailyOpen + (dailyClose - dailyOpen) * progress;
+                        intervalClose = target + (Math.random() - 0.5) * (dailyClose - dailyOpen) * 0.1;
+                    }
+
+                    const high = Math.max(intervalOpen, intervalClose) * (1 + Math.random() * 0.001);
+                    const low = Math.min(intervalOpen, intervalClose) * (1 - Math.random() * 0.001);
+                    
+                    intradayData.push({
+                        date: intervalDate,
+                        open: intervalOpen,
+                        high: high,
+                        low: low,
+                        close: intervalClose
+                    });
+                    
+                    intervalOpen = intervalClose;
+                }
+                lastClose = dailyClose;
+            });
+            return intradayData;
+        }
+
+        const dailyData = d3.csvParse(csvData);
+        let processedData = [];
+        if (dailyData.length > 0) {
+            processedData = simulateIntradayData(dailyData);
+        }
+
+        // --- SCALES & AXES ---
+        const x = d3.scaleBand().padding(0.2);
+        const y = d3.scaleLinear();
+        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b %Hh"));
+        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(2)}`);
+        
+        const xAxisGroup = g.append("g").attr("class", "x-axis");
+        const yAxisGroup = g.append("g").attr("class", "y-axis");
+        const yGridLines = g.append("g").attr('class', 'grid');
+        const yAxisLabel = g.append("text").attr("class", "axis-label");
+        
+        // --- UI ELEMENTS ---
+        const clipPath = svg.append("defs").append("clipPath").attr("id", "clip").append("rect");
+        const chartBody = g.append("g").attr("clip-path", "url(#clip)");
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+        const crosshair = g.append('g').style('display', 'none');
+        crosshair.append('line').attr('class', 'crosshair crosshair-x');
+        crosshair.append('line').attr('class', 'crosshair crosshair-y');
+        
+        let lastTransform = d3.zoomIdentity;
+        const interactionRect = g.append("rect").style("fill", "none").style("pointer-events", "all");
+        
+        // --- DRAWING FUNCTION ---
+        function drawChart() {
+            width = container.clientWidth - margin.left - margin.right;
+            height = (container.clientWidth * 0.5 > 600 ? 600 : container.clientWidth * 0.5) - margin.top - margin.bottom;
+            
+            svg.attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom);
+            clipPath.attr("width", width).attr("height", height);
+            interactionRect.attr("width", width).attr("height", height);
+
+            x.domain(processedData.map(d => d.date)).range([0, width]);
+            
+            const yMin = d3.min(processedData, d => d.low);
+            const yMax = d3.max(processedData, d => d.high);
+
+            if (yMin !== undefined && yMax !== undefined) {
+                const padding = (yMax - yMin) * 0.1 || yMin * 0.1; // Add padding, handle case where min=max
+                y.domain([yMin - padding, yMax + padding]).range([height, 0]);
+            } else {
+                y.domain([8, 10]).range([height, 0]); // Default domain
+            }
+            
+            yAxisLabel
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left + 15)
+                .attr("x", 0 - (height / 2))
+                .text("Precio (Bs por USD)");
+
+            xAxisGroup.attr("transform", `translate(0,${height})`).call(xAxis);
+            yAxisGroup.call(yAxis);
+            yGridLines.call(d3.axisLeft(y).tickSize(-width).tickFormat("")).selectAll("line").attr("class", "tick");
+            yGridLines.select(".domain").remove();
+            
+            updateTicks(); // Call function to set initial ticks
+
+            chartBody.selectAll("g.candle").remove();
+            const candles = chartBody.selectAll("g.candle").data(processedData, d => d.date).enter().append("g").attr("class", "candle");
+            candles.append("line").attr("class", "wick");
+            candles.append("rect").attr("class", "body");
+            updateCandlePositions(x);
+
+            svg.call(zoom.transform, d3.zoomIdentity);
+        }
+        
+        function updateCandlePositions(scale) {
+             g.selectAll(".candle .wick")
+                .attr("x1", d => scale(d.date) + scale.bandwidth() / 2).attr("x2", d => scale(d.date) + scale.bandwidth() / 2)
+                .attr("y1", d => y(d.high)).attr("y2", d => y(d.low))
+                .attr("stroke", d => d.close >= d.open ? "#26A69A" : "#EF5350");
+                
+            g.selectAll(".candle .body")
+                .attr("x", d => scale(d.date)).attr("y", d => y(Math.max(d.open, d.close)))
+                .attr("width", scale.bandwidth()).attr("height", d => Math.abs(y(d.open) - y(d.close)) || 1)
+                .attr("fill", d => d.close >= d.open ? "#26A69A" : "#EF5350");
+        }
+
+        function updateTicks(scale) {
+            if (!scale) scale = x;
+            const tickCount = Math.floor(width / 120);
+            
+            const visibleData = processedData.filter(d => {
+                const pos = scale(d.date);
+                return pos !== undefined && pos >= 0 && pos < width;
+            });
+            
+            const step = Math.max(1, Math.ceil(visibleData.length / tickCount));
+            const tickValues = visibleData
+                .filter((d, i) => i % step === 0)
+                .map(d => d.date);
+            
+            xAxis.tickValues(tickValues);
+            xAxisGroup.call(xAxis.scale(scale));
+        }
+
+        // --- INTERACTION HANDLERS ---
+        function handleMouseMove(event) {
+            if(processedData.length === 0) return;
+            const logicalX = lastTransform.invertX(d3.pointer(event)[0]);
+            const bandWidth = x.step();
+            const index = Math.floor(logicalX / bandWidth);
+            const clampedIndex = Math.max(0, Math.min(processedData.length - 1, index));
+            const d = processedData[clampedIndex];
+            if (!d) return;
+
+            const [mx, my] = d3.pointer(event);
+            const currentXScale = lastTransform.rescaleX(x);
+            crosshair.style('display', null);
+            crosshair.select('.crosshair-x').attr('x1', 0).attr('x2', width).attr('y1', my).attr('y2', my);
+            const crosshairCenterX = currentXScale(d.date) + currentXScale.bandwidth() / 2;
+            crosshair.select('.crosshair-y').attr('x1', crosshairCenterX).attr('x2', crosshairCenterX).attr('y1', 0).attr('y2', height);
+            
+            tooltip.style("opacity", .9);
+            const colorClass = d.close >= d.open ? "color-up" : "color-down";
+            tooltip.html(`
+                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y - %H:%M")(d.date)}</div>
+                <div class="tooltip-info">
+                    <span class="${colorClass}">Open:</span><span class="value">${d.open.toFixed(3)}</span><br>
+                    <span class="${colorClass}">High:</span><span class="value">${d.high.toFixed(3)}</span><br>
+                    <span class="${colorClass}">Low:</span><span class="value">${d.low.toFixed(3)}</span><br>
+                    <span class="${colorClass}">Close:</span><span class="value">${d.close.toFixed(3)}</span>
+                </div>
+            `).style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
+        }
+
+        function handleMouseOut() {
+            tooltip.style("opacity", 0);
+            crosshair.style('display', 'none');
+        }
+
+        // --- ZOOM ---
+        function zoomed(event) {
+            lastTransform = event.transform;
+            const newX = lastTransform.rescaleX(x);
+            updateCandlePositions(newX);
+            updateTicks(newX);
+        }
+
+        const zoom = d3.zoom().scaleExtent([0.5, 50]).translateExtent([[-width, -Infinity], [width * 10, Infinity]]).on("zoom", zoomed);
+        svg.call(zoom);
+        interactionRect.on("mousemove", handleMouseMove).on("mouseout", handleMouseOut);
+
+        // --- INITIALIZATION ---
+        drawChart();
+        window.addEventListener('resize', drawChart);
+
+    </script>
+</body>
+</html>
