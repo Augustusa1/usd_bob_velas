@@ -134,7 +134,7 @@
         d3.csv("data.csv").then(data => { // Asegúrate que 'data.csv' sea el nombre correcto de tu archivo
             processedData = data.map(d => {
                 // Combinar Fecha y HORA para crear un solo objeto Date
-                const dateTimeStr = `${d.Fecha} ${d.HORA}`;
+                const dateTimeStr = `${d.FECHA} ${d.HORA}`;
                 return {
                     date: parseDateTime(dateTimeStr),
                     open: +d.OPEN,  // El '+' convierte a número
