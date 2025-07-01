@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis de Mercado Forex - USD/BOB (Datos Reales)</title>
+    <title>Análisis de Mercado Forex - USD/BOB (Velas Diarias)</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
@@ -108,7 +108,7 @@
 </head>
 <body>
 
-    <h1>Análisis de Mercado Forex - USD/BOB</h1>
+    <h1>Análisis de Mercado Forex - USD/BOB (Velas Diarias)</h1>
     <p>Datos reales del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
 
     <div id="chart-container">
@@ -127,17 +127,17 @@
         let processedData = []; // Para almacenar los datos cargados y procesados
 
         // --- DATA LOADING AND PROCESSING ---
-        // Parseador para la fecha y hora combinadas
-        const parseDateTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+        // Parseador para la fecha (formato YYYY-MM-DD)
+        const parseDate = d3.timeParse("%Y-%m-%d");
 
         // Cargar el archivo CSV
-        d3.csv("data.csv").then(data => { // Asegúrate que 'data.csv' sea el nombre correcto de tu archivo
+        // Asegúrate que 'data.csv' sea el nombre correcto de tu archivo,
+        // o usa 'historico_27.06.2025.xlsx - TODO.csv' si no lo renombraste.
+        d3.csv("data.csv").then(data => { 
             processedData = data.map(d => {
-                // Combinar Fecha y HORA para crear un solo objeto Date
-                const dateTimeStr = `${d.FECHA} ${d.HORA}`;
                 return {
-                    date: parseDateTime(dateTimeStr),
-                    open: +d.OPEN,  // El '+' convierte a número
+                    date: parseDate(d.FECHA), // Usamos solo la columna FECHA
+                    open: +d.OPEN,            // Convertimos a número directamente
                     high: +d.MAX,
                     low: +d.MIN,
                     close: +d.CLOSE
@@ -149,26 +149,32 @@
 
             // Una vez que los datos están cargados y procesados, dibuja el gráfico
             drawChart();
-            console.log("Datos cargados y procesados:", processedData);
+            console.log("Datos cargados y procesados (velas diarias):", processedData);
 
-            // --- Ejemplo de uso de la función findClosestCandleToTime con tus datos reales ---
-            // Asumiendo que quieres encontrar la vela más cercana a las 17:00 del último día de tus datos
+            // --- Ejemplo de cómo obtener el último día (el "más reciente") ---
             if (processedData.length > 0) {
-                const lastDateInDataset = processedData[processedData.length - 1].date;
-                const targetDateForSearch = new Date(lastDateInDataset.getFullYear(), lastDateInDataset.getMonth(), lastDateInDataset.getDate());
+                const mostRecentCandle = processedData[processedData.length - 1]; // La última vela es la más reciente
                 
-                const closestCandle1700 = findClosestCandleToTime(processedData, targetDateForSearch, 17, 0, 0);
+                console.log(`Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):`);
+                console.log("Open:", mostRecentCandle.open.toFixed(4));
+                console.log("High:", mostRecentCandle.high.toFixed(4));
+                console.log("Low:", mostRecentCandle.low.toFixed(4));
+                console.log("Close:", mostRecentCandle.close.toFixed(4));
 
-                if (closestCandle1700) {
-                    console.log(`Vela más cercana a las 17:00 del ${d3.timeFormat("%d/%m/%Y")(targetDateForSearch)}:`);
-                    console.log("Fecha/Hora:", d3.timeFormat("%Y-%m-%d %H:%M:%S")(closestCandle1700.date));
-                    console.log("Open:", closestCandle1700.open.toFixed(3));
-                    console.log("High:", closestCandle1700.high.toFixed(3));
-                    console.log("Low:", closestCandle1700.low.toFixed(3));
-                    console.log("Close:", closestCandle1700.close.toFixed(3));
-                } else {
-                    console.log(`No se encontró una vela para la fecha ${d3.timeFormat("%d/%m/%Y")(targetDateForSearch)} o en el rango especificado.`);
-                }
+                // Si quieres mostrar esto en el HTML, puedes agregar un div:
+                /*
+                <div id="info-most-recent"></div>
+                */
+                // Y luego:
+                // document.getElementById('info-most-recent').innerHTML = `
+                //     <p><strong>Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):</strong></p>
+                //     <ul>
+                //         <li>Open: ${mostRecentCandle.open.toFixed(4)}</li>
+                //         <li>Close: ${mostRecentCandle.close.toFixed(4)}</li>
+                //         <li>High: ${mostRecentCandle.high.toFixed(4)}</li>
+                //         <li>Low: ${mostRecentCandle.low.toFixed(4)}</li>
+                //     </ul>
+                // `;
             }
 
         }).catch(error => {
@@ -177,43 +183,17 @@
         });
 
 
-        // --- NEW FUNCTION: Find the closest candle to a specific time on a given date ---
-        function findClosestCandleToTime(data, targetDate, targetHour, targetMinute, targetSecond) {
-            const targetTimeMillis = (targetHour * 3600 + targetMinute * 60 + targetSecond) * 1000; 
+        // --- NOTA: La función findClosestCandleToTime ya no tiene sentido si solo hay velas diarias.
+        // Si quisieras la vela "más cercana a una fecha específica", solo buscarías por fecha.
+        // La vela más reciente es simplemente la última del array ordenado.
 
-            let closestCandle = null;
-            let minDifference = Infinity;
-
-            data.forEach(d => {
-                const candleDate = new Date(d.date);
-                // Asegurarse de comparar solo la parte de la fecha (año, mes, día)
-                if (candleDate.getFullYear() === targetDate.getFullYear() &&
-                    candleDate.getMonth() === targetDate.getMonth() &&
-                    candleDate.getDate() === targetDate.getDate()) {
-                    
-                    const candleTimeMillis = (candleDate.getHours() * 3600 + candleDate.getMinutes() * 60 + candleDate.getSeconds()) * 1000;
-                    const difference = Math.abs(candleTimeMillis - targetTimeMillis);
-
-                    // Para el valor más reciente en un rango de tiempo, podrías ordenar primero
-                    // y luego tomar el último, pero para 'el más cercano', este enfoque es directo.
-                    // Si buscas el más reciente EN ese rango (ej. 17:00-17:59),
-                    // primero filtra por rango, y luego ordena por fecha/hora descendente y toma el primero.
-
-                    if (difference < minDifference) {
-                        minDifference = difference;
-                        closestCandle = d;
-                    }
-                }
-            });
-            return closestCandle;
-        }
 
         // --- SCALES & AXES ---
         const x = d3.scaleBand().padding(0.2);
         const y = d3.scaleLinear();
-        // Ajustar el formato del tick del eje X para mostrar Fecha y Hora
-        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b %H:%M")); 
-        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(3)}`); // Aumentar precisión si es necesario
+        // Ajustar el formato del tick del eje X para mostrar solo la Fecha
+        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b-%Y")); 
+        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(4)}`); // Aumentar precisión si es necesario
         
         const xAxisGroup = g.append("g").attr("class", "x-axis");
         const yAxisGroup = g.append("g").attr("class", "y-axis");
@@ -296,7 +276,6 @@
             if (!scale) scale = x;
             const tickCount = Math.floor(width / 120); // Número aproximado de ticks
 
-            // Obtener todas las fechas visibles
             const visibleDataDates = processedData
                 .filter(d => {
                     const pos = scale(d.date);
@@ -304,16 +283,15 @@
                 })
                 .map(d => d.date);
             
-            // Si no hay datos visibles, salir
             if (visibleDataDates.length === 0) {
                 xAxis.tickValues([]);
                 xAxisGroup.call(xAxis.scale(scale));
                 return;
             }
 
-            // D3 time ticks para mejor manejo de fechas y horas
-            const timeInterval = d3.timeMinute.every(30); // Mostrar ticks cada 30 minutos, ajusta según tu densidad
-            const tickValues = timeInterval.range(visibleDataDates[0], d3.timeMinute.offset(visibleDataDates[visibleDataDates.length - 1], 1));
+            // D3 time ticks para fechas diarias (ajusta si quieres un tick por día, o cada N días)
+            const timeInterval = d3.timeDay.every(1); // Muestra un tick por cada día
+            const tickValues = timeInterval.range(visibleDataDates[0], d3.timeDay.offset(visibleDataDates[visibleDataDates.length - 1], 1));
             
             xAxis.tickValues(tickValues);
             xAxisGroup.call(xAxis.scale(scale));
@@ -345,8 +323,7 @@
             tooltip.style("opacity", .9);
             const colorClass = d.close >= d.open ? "color-up" : "color-down";
             tooltip.html(`
-                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y - %H:%M:%S")(d.date)}</div>
-                <div class="tooltip-info">
+                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y")(d.date)}</div> <div class="tooltip-info">
                     <span class="${colorClass}">Open:</span><span class="value">${d.open.toFixed(4)}</span><br>
                     <span class="${colorClass}">High:</span><span class="value">${d.high.toFixed(4)}</span><br>
                     <span class="${colorClass}">Low:</span><span class="value">${d.low.toFixed(4)}</span><br>
