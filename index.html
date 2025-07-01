@@ -141,65 +141,137 @@
         
         let processedData = []; // Almacenará los datos cargados y procesados
 
+        // --- DATOS CSV SIMULADOS ---
+        // Estos son los datos que proporcionaste, incrustados para simulación.
+        // Una vez que confirmes que funciona, te indicaré cómo cargar desde un archivo externo.
+        const simulatedCsvData = `FECHA;OPEN;MAX;MIN;CLOSE
+22/7/2024;10.14;10.2;10.13;10.14
+23/7/2024;10.15;10.24;10.19;10.14
+24/7/2024;10.21;10.42;10.37;10.19
+25/7/2024;10.47;12;10.65;10.41
+26/7/2024;10.73;11.3;11.05;10.66
+27/7/2024;11.12;11.5;11.45;11.06
+28/7/2024;11.13;11.24;11.17;11.4
+29/7/2024;11.2;11.3;11.12;11.14
+30/7/2024;11.2;11.98;11.73;11.19
+31/7/2024;11.9;13.49;12.94;11.82
+1/8/2024;13.53;13.46;13.22;13.26
+2/8/2024;13.26;13.28;12.95;13.21
+3/8/2024;13.06;13.13;13.02;12.87
+4/8/2024;13.03;13.02;12.95;12.97
+5/8/2024;13;13;12.79;12.97
+6/8/2024;13.17;12.8;11.49;12.97
+7/8/2024;12.53;12.59;12.2;12.52
+8/8/2024;12.19;11.52;10.57;12.19
+9/8/2024;10.51;11.05;10.71;10.41
+10/8/2024;10.86;10.83;10.73;10.75
+11/8/2024;10.78;10.88;10.84;10.76
+12/8/2024;10.89;10.88;10.81;10.87
+13/8/2024;10.85;10.89;10.83;10.85
+14/8/2024;10.84;10.88;10.86;10.81
+15/8/2024;10.86;10.92;10.89;10.85
+16/8/2024;10.92;11.51;10.92;10.9
+17/8/2024;11.29;11.11;10.98;11
+18/8/2024;10.95;11.06;10.95;10.93
+19/8/2024;10.97;11;10.96;10.95
+20/8/2024;10.95;11;10.99;10.94
+21/8/2024;10.98;10.99;10.96;10.98
+22/8/2024;10.96;10.95;10.72;10.95
+23/8/2024;10.81;10.8;10.76;10.8
+24/8/2024;10.75;10.71;10.66;10.73
+25/8/2024;10.7;10.77;10.67;10.69
+26/8/2024;10.75;10.73;10.7;10.7
+27/8/2024;10.7;10.88;10.77;10.68
+28/8/2024;10.77;10.82;10.78;10.72
+29/8/2024;10.8;10.87;10.84;10.78
+30/8/2024;10.82;10.81;10.79;10.8
+31/8/2024;10.78;10.72;10.7;10.75
+1/9/2024;10.71;10.69;10.67;10.66
+2/9/2024;10.66;10.7;10.68;10.64
+3/9/2024;10.69;10.72;10.68;10.67
+4/9/2024;10.69;10.7;10.67;10.67
+5/9/2024;10.67;10.49;10.21;10.66
+6/9/2024;10.46;10.44;10.41;10.33
+7/9/2024;10.37;10.04;10.01;10.35
+8/9/2024;10.03;10.42;10.17;10.02
+9/9/2024;10.23;10.25;10.14;10.23
+10/9/2024;10.16;10.3;10.17;10.14
+11/9/2024;10.27;10.56;10.45;10.22
+12/9/2024;10.53;10.75;10.62;10.47
+13/9/2024;10.67;10.76;10.65;10.61
+14/9/2024;10.62;10.52;10.35;10.61
+15/9/2024;10.45;10.63;10.54;10.4
+16/9/2024;10.57;10.5;10.45;10.53
+17/9/2024;10.47;10.59;10.55;10.45
+18/9/2024;10.54;10.56;10.52;10.5
+19/9/2024;10.54;10.54;10.52;10.53
+20/9/2024;10.53;10.54;10.5;10.52
+21/9/2024;10.51;10.48;10.45;10.5
+22/9/2024;10.46;10.5;10.48;10.41
+23/9/2024;10.49;10.5;10.48;10.47
+24/9/2024;10.49;10.53;10.5;10.47
+25/9/2024;10.53;10.57;10.53;10.5
+26/9/2024;10.56;10.68;10.6;10.54
+27/9/2024;10.62;10.6;10.57;10.6
+28/9/2024;10.56;10.55;10.51;10.52
+29/9/2024;10.53;10.55;10.54;10.51`;
+
         // --- CARGA Y PROCESAMIENTO DE DATOS ---
         // Función para parsear fechas en formatos YYYY-MM-DD o DD/MM/YYYY
         const parseDate = (dateString) => {
-            let parsed = d3.timeParse("%d-%m-%Y")(dateString); // Intenta YYYY-MM-DD
+            let parsed = d3.timeParse("%Y-%m-%d")(dateString); // Intenta YYYY-MM-DD
             if (!parsed) {
-                parsed = d3.timeParse("%d/%m/%Y")(dateString); // Intenta DD/MM/YYYY
+                // Intenta DD/M/YYYY o DD/MM/YYYY (maneja meses/días de un solo dígito)
+                parsed = d3.timeParse("%d/%m/%Y")(dateString); 
             }
             return parsed;
         };
 
-        // Cargar el archivo CSV
-        // IMPORTANTE: Si tu archivo se llama diferente a "data.csv", cámbialo aquí.
-        // Si tu delimitador no es ';', cambia d3.dsv(";", "data.csv") a d3.csv("data.csv")
-        // (d3.csv asume coma como delimitador).
-        d3.dsv(";", "data.csv").then(data => { 
-            processedData = data.map(d => {
-                // Asegúrate de que los nombres de las columnas coincidan EXACTAMENTE con tu CSV
-                // (ej. 'FECHA', 'OPEN', 'MAX', 'MIN', 'CLOSE' en mayúsculas si así están en tu CSV)
-                return {
-                    date: parseDate(d.FECHA),
-                    open: +d.OPEN,            // El '+' convierte el string a número
-                    high: +d.MAX,
-                    low: +d.MIN,
-                    close: +d.CLOSE
-                };
-            }).filter(d => d.date && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close)); // Filtra entradas inválidas
+        // Procesar los datos CSV simulados directamente
+        // d3.dsvFormat se usa para crear un parser para strings CSV con delimitadores específicos
+        const data = d3.dsvFormat(";").parse(simulatedCsvData);
 
-            // Ordenar los datos por fecha para asegurar que el gráfico se dibuje correctamente
-            processedData.sort((a, b) => a.date - b.date);
+        processedData = data.map(d => {
+            // Asegúrate de que los nombres de las columnas coincidan EXACTAMENTE con tu CSV
+            // (ej. 'FECHA', 'OPEN', 'MAX', 'MIN', 'CLOSE' en mayúsculas si así están en tu CSV)
+            return {
+                date: parseDate(d.FECHA),
+                open: +d.OPEN,            // El '+' convierte el string a número
+                high: +d.MAX,
+                low: +d.MIN,
+                close: +d.CLOSE
+            };
+        }).filter(d => d.date && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close)); // Filtra entradas inválidas
 
-            // Una vez que los datos están cargados y procesados, dibuja el gráfico
-            drawChart();
-            console.log("Datos cargados y procesados (velas diarias):", processedData);
+        // Ordenar los datos por fecha para asegurar que el gráfico se dibuje correctamente
+        processedData.sort((a, b) => a.date - b.date);
 
-            // --- Ejemplo de cómo obtener la vela más reciente ---
-            if (processedData.length > 0) {
-                const mostRecentCandle = processedData[processedData.length - 1]; // La última vela es la más reciente
-                
-                const infoDisplay = document.getElementById('info-display');
-                if (infoDisplay) {
-                    infoDisplay.innerHTML = `
-                        <p><strong>Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):</strong></p>
-                        <ul>
-                            <li>Open: ${mostRecentCandle.open.toFixed(4)}</li>
-                            <li>High: ${mostRecentCandle.high.toFixed(4)}</li>
-                            <li>Low: ${mostRecentCandle.low.toFixed(4)}</li>
-                            <li>Close: ${mostRecentCandle.close.toFixed(4)}</li>
-                        </ul>
-                    `;
-                }
+        // Una vez que los datos están cargados y procesados, dibuja el gráfico
+        drawChart();
+        console.log("Datos cargados y procesados (velas diarias):", processedData);
+
+        // --- Ejemplo de cómo obtener la vela más reciente ---
+        if (processedData.length > 0) {
+            const mostRecentCandle = processedData[processedData.length - 1]; // La última vela es la más reciente
+            
+            const infoDisplay = document.getElementById('info-display');
+            if (infoDisplay) {
+                infoDisplay.innerHTML = `
+                    <p><strong>Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):</strong></p>
+                    <ul>
+                        <li>Open: ${mostRecentCandle.open.toFixed(4)}</li>
+                        <li>High: ${mostRecentCandle.high.toFixed(4)}</li>
+                        <li>Low: ${mostRecentCandle.low.toFixed(4)}</li>
+                        <li>Close: ${mostRecentCandle.close.toFixed(4)}</li>
+                    </ul>
+                `;
             }
-
-        }).catch(error => {
-            console.error('Error al cargar o procesar el CSV:', error);
+        } else {
             const chartContainer = document.getElementById('chart-container');
             if (chartContainer) {
-                chartContainer.innerHTML = '<p style="color: red;">Error al cargar los datos del gráfico. Asegúrate de que el archivo CSV exista, tenga el nombre correcto y el formato esperado (delimitador `;`, columnas `FECHA`, `OPEN`, `MAX`, `MIN`, `CLOSE`).</p>';
+                chartContainer.innerHTML = '<p style="color: red;">No se pudieron cargar o procesar datos válidos para el gráfico. Por favor, revisa el formato de tus datos.</p>';
             }
-        });
+        }
 
 
         // --- ESCALAS Y EJES ---
@@ -391,27 +463,6 @@
         // Añade un listener para redibujar el gráfico si la ventana cambia de tamaño.
         window.addEventListener('resize', drawChart);
 
-        /*
-        // --- EJEMPLO DE DATOS CSV PARA SIMULACIÓN ---
-        // Copia este contenido y crea un archivo llamado 'data.csv' en la misma carpeta que tu 'index.html'
-        // Asegúrate de que el delimitador sea punto y coma (;)
-        //
-        // FECHA;OPEN;MAX;MIN;CLOSE
-        // 2024-06-20;9.2500;9.2700;9.2400;9.2600
-        // 2024-06-21;9.2600;9.2850;9.2550;9.2750
-        // 2024-06-22;9.2750;9.3000;9.2700;9.2900
-        // 2024-06-23;9.2900;9.3150;9.2800;9.3050
-        // 2024-06-24;9.3050;9.3300;9.2950;9.3200
-        // 2024-06-25;9.3200;9.3450;9.3100;9.3350
-        // 2024-06-26;9.3350;9.3600;9.3250;9.3500
-        // 2024-06-27;9.3500;9.3750;9.3400;9.3650
-        // 2024-06-28;9.3650;9.3900;9.3550;9.3800
-        // 2024-06-29;9.3800;9.4050;9.3700;9.3950
-        // 2024-06-30;9.3950;9.4200;9.3850;9.4100
-        // 2024-07-01;9.4100;9.4350;9.4000;9.4250
-        // 2024-07-02;9.4250;9.4500;9.4150;9.4400
-        // 2024-07-03;9.4400;9.4650;9.4300;9.4550
-        */
     </script>
 </body>
 </html>
