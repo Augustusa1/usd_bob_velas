@@ -4,31 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Análisis de Mercado Forex - USD/BOB (Velas Diarias)</title>
+    <!-- Carga la librería D3.js -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        /* Importa la fuente Roboto Mono de Google Fonts */
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
 
+        /* Estilos generales del cuerpo de la página */
         body {
             font-family: 'Roboto Mono', monospace;
-            background-color: #131722;
-            color: #D1D4DC;
+            background-color: #131722; /* Fondo oscuro */
+            color: #D1D4DC; /* Color de texto claro */
             display: flex;
             justify-content: center;
             align-items: center;
             flex-direction: column;
             margin: 0;
             padding: 20px;
-            min-height: 100vh;
+            min-height: 100vh; /* Altura mínima para ocupar toda la ventana */
             box-sizing: border-box;
         }
 
+        /* Estilos para el título principal */
         h1 {
             font-size: 2rem;
             color: #FFFFFF;
             margin-bottom: 5px;
-            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.5); /* Sombra de texto para efecto neón */
         }
 
+        /* Estilos para el párrafo descriptivo */
         p {
             font-size: 0.9rem;
             color: #787B86;
@@ -36,37 +41,43 @@
             margin-bottom: 20px;
         }
 
+        /* Contenedor principal del gráfico */
         #chart-container {
             position: relative;
-            background-color: #1A1E29;
-            border-radius: 8px;
+            background-color: #1A1E29; /* Fondo del contenedor del gráfico */
+            border-radius: 8px; /* Bordes redondeados */
             padding: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Sombra sutil */
             width: 100%;
-            max-width: 1200px;
+            max-width: 1200px; /* Ancho máximo para el gráfico */
             box-sizing: border-box;
         }
 
+        /* Estilos para las etiquetas de los ejes */
         .axis-label {
             fill: #B2B5BE;
             font-size: 12px;
             text-anchor: middle;
         }
 
+        /* Estilos para las líneas de las marcas de los ejes (grid lines) */
         .tick line {
             stroke: #2A2E39;
-            stroke-dasharray: 2,2;
+            stroke-dasharray: 2,2; /* Líneas punteadas */
         }
 
+        /* Estilos para el texto de las marcas de los ejes */
         .tick text {
             fill: #787B86;
             font-size: 11px;
         }
 
+        /* Estilos para el dominio (línea principal de los ejes) */
         .domain {
             stroke: #494949;
         }
         
+        /* Estilos para el tooltip (información al pasar el mouse) */
         .tooltip {
             position: absolute;
             text-align: left;
@@ -75,9 +86,9 @@
             background: #2A2E39;
             border: 1px solid #363A45;
             border-radius: 4px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
+            pointer-events: none; /* Permite interactuar con el gráfico a través del tooltip */
+            opacity: 0; /* Inicialmente oculto */
+            transition: opacity 0.2s ease-in-out; /* Transición suave */
             color: #D1D4DC;
             white-space: nowrap;
         }
@@ -95,9 +106,11 @@
             font-weight: normal;
             margin-left: 5px;
         }
-        .color-up { color: #26A69A; }
-        .color-down { color: #EF5350; }
+        /* Colores para velas alcistas (suben) y bajistas (bajan) */
+        .color-up { color: #26A69A; } /* Verde */
+        .color-down { color: #EF5350; } /* Rojo */
         
+        /* Estilos para las líneas de la cruz (crosshair) */
         .crosshair {
             stroke: #787B86;
             stroke-width: 1px;
@@ -109,14 +122,16 @@
 <body>
 
     <h1>Análisis de Mercado Forex - USD/BOB (Velas Diarias)</h1>
-    <p>Datos reales del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
+    <p>Datos históricos del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
 
     <div id="chart-container">
         <svg id="candlestick-chart"></svg>
+        <!-- Contenedor para mostrar información adicional si es necesario -->
+        <div id="info-display" style="margin-top: 10px; font-size: 0.85rem; color: #B2B5BE;"></div>
     </div>
 
     <script>
-        // --- CHART SETUP ---
+        // --- CONFIGURACIÓN DEL GRÁFICO ---
         const container = document.getElementById('chart-container');
         const margin = {top: 20, right: 60, bottom: 40, left: 60};
         let width, height;
@@ -124,20 +139,29 @@
         const svg = d3.select("#candlestick-chart");
         const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
         
-        let processedData = []; // Para almacenar los datos cargados y procesados
+        let processedData = []; // Almacenará los datos cargados y procesados
 
-        // --- DATA LOADING AND PROCESSING ---
-        // Parseador para la fecha (formato YYYY-MM-DD)
-        const parseDate = d3.timeParse("%Y-%m-%d");
+        // --- CARGA Y PROCESAMIENTO DE DATOS ---
+        // Función para parsear fechas en formatos YYYY-MM-DD o DD/MM/YYYY
+        const parseDate = (dateString) => {
+            let parsed = d3.timeParse("%d-%m-%Y")(dateString); // Intenta YYYY-MM-DD
+            if (!parsed) {
+                parsed = d3.timeParse("%d/%m/%Y")(dateString); // Intenta DD/MM/YYYY
+            }
+            return parsed;
+        };
 
         // Cargar el archivo CSV
-        // Asegúrate que 'data.csv' sea el nombre correcto de tu archivo,
-        // o usa 'historico_27.06.2025.xlsx - TODO.csv' si no lo renombraste.
-        d3.csv("data.csv").then(data => { 
+        // IMPORTANTE: Si tu archivo se llama diferente a "data.csv", cámbialo aquí.
+        // Si tu delimitador no es ';', cambia d3.dsv(";", "data.csv") a d3.csv("data.csv")
+        // (d3.csv asume coma como delimitador).
+        d3.dsv(";", "data.csv").then(data => { 
             processedData = data.map(d => {
+                // Asegúrate de que los nombres de las columnas coincidan EXACTAMENTE con tu CSV
+                // (ej. 'FECHA', 'OPEN', 'MAX', 'MIN', 'CLOSE' en mayúsculas si así están en tu CSV)
                 return {
-                    date: parseDate(d.FECHA), // Usamos solo la columna FECHA
-                    open: +d.OPEN,            // Convertimos a número directamente
+                    date: parseDate(d.FECHA),
+                    open: +d.OPEN,            // El '+' convierte el string a número
                     high: +d.MAX,
                     low: +d.MIN,
                     close: +d.CLOSE
@@ -151,56 +175,48 @@
             drawChart();
             console.log("Datos cargados y procesados (velas diarias):", processedData);
 
-            // --- Ejemplo de cómo obtener el último día (el "más reciente") ---
+            // --- Ejemplo de cómo obtener la vela más reciente ---
             if (processedData.length > 0) {
                 const mostRecentCandle = processedData[processedData.length - 1]; // La última vela es la más reciente
                 
-                console.log(`Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):`);
-                console.log("Open:", mostRecentCandle.open.toFixed(4));
-                console.log("High:", mostRecentCandle.high.toFixed(4));
-                console.log("Low:", mostRecentCandle.low.toFixed(4));
-                console.log("Close:", mostRecentCandle.close.toFixed(4));
-
-                // Si quieres mostrar esto en el HTML, puedes agregar un div:
-                /*
-                <div id="info-most-recent"></div>
-                */
-                // Y luego:
-                // document.getElementById('info-most-recent').innerHTML = `
-                //     <p><strong>Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):</strong></p>
-                //     <ul>
-                //         <li>Open: ${mostRecentCandle.open.toFixed(4)}</li>
-                //         <li>Close: ${mostRecentCandle.close.toFixed(4)}</li>
-                //         <li>High: ${mostRecentCandle.high.toFixed(4)}</li>
-                //         <li>Low: ${mostRecentCandle.low.toFixed(4)}</li>
-                //     </ul>
-                // `;
+                const infoDisplay = document.getElementById('info-display');
+                if (infoDisplay) {
+                    infoDisplay.innerHTML = `
+                        <p><strong>Vela más reciente (${d3.timeFormat("%d/%m/%Y")(mostRecentCandle.date)}):</strong></p>
+                        <ul>
+                            <li>Open: ${mostRecentCandle.open.toFixed(4)}</li>
+                            <li>High: ${mostRecentCandle.high.toFixed(4)}</li>
+                            <li>Low: ${mostRecentCandle.low.toFixed(4)}</li>
+                            <li>Close: ${mostRecentCandle.close.toFixed(4)}</li>
+                        </ul>
+                    `;
+                }
             }
 
         }).catch(error => {
             console.error('Error al cargar o procesar el CSV:', error);
-            document.getElementById('chart-container').innerHTML = '<p style="color: red;">Error al cargar los datos del gráfico. Asegúrate de que el archivo CSV exista y tenga el formato correcto.</p>';
+            const chartContainer = document.getElementById('chart-container');
+            if (chartContainer) {
+                chartContainer.innerHTML = '<p style="color: red;">Error al cargar los datos del gráfico. Asegúrate de que el archivo CSV exista, tenga el nombre correcto y el formato esperado (delimitador `;`, columnas `FECHA`, `OPEN`, `MAX`, `MIN`, `CLOSE`).</p>';
+            }
         });
 
 
-        // --- NOTA: La función findClosestCandleToTime ya no tiene sentido si solo hay velas diarias.
-        // Si quisieras la vela "más cercana a una fecha específica", solo buscarías por fecha.
-        // La vela más reciente es simplemente la última del array ordenado.
+        // --- ESCALAS Y EJES ---
+        const x = d3.scaleBand().padding(0.2); // Escala para el eje X (bandas para cada vela)
+        const y = d3.scaleLinear(); // Escala para el eje Y (valores de precio)
 
-
-        // --- SCALES & AXES ---
-        const x = d3.scaleBand().padding(0.2);
-        const y = d3.scaleLinear();
-        // Ajustar el formato del tick del eje X para mostrar solo la Fecha
+        // Eje X: Muestra la fecha en formato día-mes-año
         const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b-%Y")); 
-        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(4)}`); // Aumentar precisión si es necesario
+        // Eje Y: Muestra el precio con 4 decimales
+        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(4)}`); 
         
         const xAxisGroup = g.append("g").attr("class", "x-axis");
         const yAxisGroup = g.append("g").attr("class", "y-axis");
         const yGridLines = g.append("g").attr('class', 'grid');
         const yAxisLabel = g.append("text").attr("class", "axis-label");
         
-        // --- UI ELEMENTS ---
+        // --- ELEMENTOS DE INTERFAZ DE USUARIO ---
         const clipPath = svg.append("defs").append("clipPath").attr("id", "clip").append("rect");
         const chartBody = g.append("g").attr("clip-path", "url(#clip)");
         const tooltip = d3.select("body").append("div").attr("class", "tooltip");
@@ -208,10 +224,10 @@
         crosshair.append('line').attr('class', 'crosshair crosshair-x');
         crosshair.append('line').attr('class', 'crosshair crosshair-y');
         
-        let lastTransform = d3.zoomIdentity;
-        const interactionRect = g.append("rect").style("fill", "none").style("pointer-events", "all");
+        let lastTransform = d3.zoomIdentity; // Almacena el estado actual del zoom/pan
+        const interactionRect = g.append("rect").style("fill", "none").style("pointer-events", "all"); // Rectángulo invisible para interacciones
         
-        // --- DRAWING FUNCTION ---
+        // --- FUNCIÓN DE DIBUJO DEL GRÁFICO ---
         function drawChart() {
             // Solo dibujar si processedData tiene elementos
             if (processedData.length === 0) {
@@ -219,59 +235,71 @@
                 return;
             }
 
+            // Calcula el ancho y alto del gráfico basándose en el contenedor
             width = container.clientWidth - margin.left - margin.right;
             height = (container.clientWidth * 0.5 > 600 ? 600 : container.clientWidth * 0.5) - margin.top - margin.bottom;
             
+            // Ajusta el tamaño del SVG y del área de recorte
             svg.attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom);
             clipPath.attr("width", width).attr("height", height);
             interactionRect.attr("width", width).attr("height", height);
 
+            // Establece el dominio del eje X (todas las fechas) y el rango (ancho del gráfico)
             x.domain(processedData.map(d => d.date)).range([0, width]);
             
+            // Calcula los valores mínimo y máximo para el eje Y
             const yMin = d3.min(processedData, d => d.low);
             const yMax = d3.max(processedData, d => d.high);
 
+            // Establece el dominio del eje Y con un poco de padding
             if (yMin !== undefined && yMax !== undefined) {
                 const padding = (yMax - yMin) * 0.1 || yMin * 0.1; 
                 y.domain([yMin - padding, yMax + padding]).range([height, 0]);
             } else {
-                y.domain([8.9, 9.5]).range([height, 0]); // Default domain si los datos están vacíos
+                y.domain([8.9, 9.5]).range([height, 0]); // Dominio por defecto si no hay datos
             }
             
+            // Posiciona y etiqueta el eje Y
             yAxisLabel
                 .attr("transform", "rotate(-90)")
                 .attr("y", 0 - margin.left + 15)
                 .attr("x", 0 - (height / 2))
                 .text("Precio (Bs por USD)");
 
+            // Dibuja los ejes X e Y
             xAxisGroup.attr("transform", `translate(0,${height})`).call(xAxis);
             yAxisGroup.call(yAxis);
+            // Dibuja las líneas de la cuadrícula del eje Y
             yGridLines.call(d3.axisLeft(y).tickSize(-width).tickFormat("")).selectAll("line").attr("class", "tick");
-            yGridLines.select(".domain").remove();
+            yGridLines.select(".domain").remove(); // Quita la línea del dominio de la cuadrícula
             
-            updateTicks(); 
+            updateTicks(); // Actualiza las marcas del eje X
 
-            chartBody.selectAll("g.candle").remove(); // Limpiar velas antiguas antes de redibujar
+            // Limpia las velas antiguas y dibuja las nuevas
+            chartBody.selectAll("g.candle").remove(); 
             const candles = chartBody.selectAll("g.candle").data(processedData, d => d.date).enter().append("g").attr("class", "candle");
-            candles.append("line").attr("class", "wick");
-            candles.append("rect").attr("class", "body");
-            updateCandlePositions(x);
+            candles.append("line").attr("class", "wick"); // Mecha de la vela
+            candles.append("rect").attr("class", "body"); // Cuerpo de la vela
+            updateCandlePositions(x); // Posiciona las velas
 
+            // Resetea el zoom al estado inicial
             svg.call(zoom.transform, d3.zoomIdentity);
         }
         
+        // Función para actualizar la posición y el tamaño de las velas
         function updateCandlePositions(scale) {
              g.selectAll(".candle .wick")
                 .attr("x1", d => scale(d.date) + scale.bandwidth() / 2).attr("x2", d => scale(d.date) + scale.bandwidth() / 2)
                 .attr("y1", d => y(d.high)).attr("y2", d => y(d.low))
-                .attr("stroke", d => d.close >= d.open ? "#26A69A" : "#EF5350");
+                .attr("stroke", d => d.close >= d.open ? "#26A69A" : "#EF5350"); // Color de la mecha
                 
             g.selectAll(".candle .body")
                 .attr("x", d => scale(d.date)).attr("y", d => y(Math.max(d.open, d.close)))
                 .attr("width", scale.bandwidth()).attr("height", d => Math.abs(y(d.open) - y(d.close)) || 1)
-                .attr("fill", d => d.close >= d.open ? "#26A69A" : "#EF5350");
+                .attr("fill", d => d.close >= d.open ? "#26A69A" : "#EF5350"); // Color del cuerpo
         }
 
+        // Función para actualizar las marcas del eje X durante el zoom/pan
         function updateTicks(scale) {
             if (!scale) scale = x;
             const tickCount = Math.floor(width / 120); // Número aproximado de ticks
@@ -289,8 +317,8 @@
                 return;
             }
 
-            // D3 time ticks para fechas diarias (ajusta si quieres un tick por día, o cada N días)
-            const timeInterval = d3.timeDay.every(1); // Muestra un tick por cada día
+            // Genera ticks diarios para el eje X
+            const timeInterval = d3.timeDay.every(1); 
             const tickValues = timeInterval.range(visibleDataDates[0], d3.timeDay.offset(visibleDataDates[visibleDataDates.length - 1], 1));
             
             xAxis.tickValues(tickValues);
@@ -298,7 +326,8 @@
         }
 
 
-        // --- INTERACTION HANDLERS ---
+        // --- MANEJADORES DE INTERACCIÓN ---
+        // Maneja el movimiento del mouse para mostrar tooltip y crosshair
         function handleMouseMove(event) {
             if(processedData.length === 0) return;
             const logicalX = lastTransform.invertX(d3.pointer(event)[0]);
@@ -323,7 +352,8 @@
             tooltip.style("opacity", .9);
             const colorClass = d.close >= d.open ? "color-up" : "color-down";
             tooltip.html(`
-                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y")(d.date)}</div> <div class="tooltip-info">
+                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y")(d.date)}</div> <!-- Solo fecha en tooltip -->
+                <div class="tooltip-info">
                     <span class="${colorClass}">Open:</span><span class="value">${d.open.toFixed(4)}</span><br>
                     <span class="${colorClass}">High:</span><span class="value">${d.high.toFixed(4)}</span><br>
                     <span class="${colorClass}">Low:</span><span class="value">${d.low.toFixed(4)}</span><br>
@@ -332,29 +362,56 @@
             `).style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
         }
 
+        // Maneja la salida del mouse para ocultar tooltip y crosshair
         function handleMouseOut() {
             tooltip.style("opacity", 0);
             crosshair.style('display', 'none');
         }
 
-        // --- ZOOM ---
+        // --- FUNCIONALIDAD DE ZOOM Y PAN ---
         function zoomed(event) {
             lastTransform = event.transform;
-            const newX = lastTransform.rescaleX(x);
-            updateCandlePositions(newX);
-            updateTicks(newX);
+            const newX = lastTransform.rescaleX(x); // Obtiene la nueva escala X con el zoom/pan
+            updateCandlePositions(newX); // Actualiza la posición de las velas
+            updateTicks(newX); // Actualiza las marcas del eje X
         }
 
-        const zoom = d3.zoom().scaleExtent([0.5, 50]).translateExtent([[-width, -Infinity], [width * 10, Infinity]]).on("zoom", zoomed);
-        // Aplica el zoom al svg entero
+        // Configura el comportamiento de zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 50]) // Rango de zoom (0.5x a 50x)
+            .translateExtent([[-width, -Infinity], [width * 10, Infinity]]) // Limita el pan
+            .on("zoom", zoomed); // Llama a la función 'zoomed' en cada evento de zoom
+
+        // Aplica el zoom al SVG y los manejadores de interacción al rectángulo invisible
         svg.call(zoom); 
-        // El interactionRect para detectar movimientos de mouse y tooltips
         interactionRect.on("mousemove", handleMouseMove).on("mouseout", handleMouseOut);
 
-        // --- INITIALIZATION ---
-        // drawChart() ahora se llama dentro del .then() de d3.csv
+        // --- INICIALIZACIÓN ---
+        // 'drawChart()' se llama dentro del '.then()' de d3.csv para asegurar que los datos estén cargados.
+        // Añade un listener para redibujar el gráfico si la ventana cambia de tamaño.
         window.addEventListener('resize', drawChart);
 
+        /*
+        // --- EJEMPLO DE DATOS CSV PARA SIMULACIÓN ---
+        // Copia este contenido y crea un archivo llamado 'data.csv' en la misma carpeta que tu 'index.html'
+        // Asegúrate de que el delimitador sea punto y coma (;)
+        //
+        // FECHA;OPEN;MAX;MIN;CLOSE
+        // 2024-06-20;9.2500;9.2700;9.2400;9.2600
+        // 2024-06-21;9.2600;9.2850;9.2550;9.2750
+        // 2024-06-22;9.2750;9.3000;9.2700;9.2900
+        // 2024-06-23;9.2900;9.3150;9.2800;9.3050
+        // 2024-06-24;9.3050;9.3300;9.2950;9.3200
+        // 2024-06-25;9.3200;9.3450;9.3100;9.3350
+        // 2024-06-26;9.3350;9.3600;9.3250;9.3500
+        // 2024-06-27;9.3500;9.3750;9.3400;9.3650
+        // 2024-06-28;9.3650;9.3900;9.3550;9.3800
+        // 2024-06-29;9.3800;9.4050;9.3700;9.3950
+        // 2024-06-30;9.3950;9.4200;9.3850;9.4100
+        // 2024-07-01;9.4100;9.4350;9.4000;9.4250
+        // 2024-07-02;9.4250;9.4500;9.4150;9.4400
+        // 2024-07-03;9.4400;9.4650;9.4300;9.4550
+        */
     </script>
 </body>
 </html>
