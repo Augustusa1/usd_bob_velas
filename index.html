@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulación de Mercado Forex - USD/BOB</title>
+    <title>Análisis de Mercado Forex - USD/BOB (Datos Reales)</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
@@ -109,47 +109,13 @@
 <body>
 
     <h1>Análisis de Mercado Forex - USD/BOB</h1>
-    <p>Simulación del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
+    <p>Datos reales del par de divisas USD/BOB. Utiliza el scroll para hacer zoom y arrastra para navegar.</p>
 
     <div id="chart-container">
         <svg id="candlestick-chart"></svg>
     </div>
 
     <script>
-        // --- DATA ---
-        const csvData = `Fecha,Compra,Venta
-28/05/2024,9.1,9.2
-29/05/2024,9.05,9.15
-30/05/2024,9,9.1
-31/05/2024,8.95,9.05
-01/06/2024,8.95,9.05
-02/06/2024,8.95,9.05
-03/06/2024,8.95,9.05
-04/06/2024,8.98,9.08
-05/06/2024,9,9.1
-06/06/2024,9.02,9.12
-07/06/2024,9.05,9.15
-08/06/2024,9.05,9.15
-09/06/2024,9.05,9.15
-10/06/2024,9.08,9.18
-11/06/2024,9.1,9.2
-12/06/2024,9.12,9.22
-13/06/2024,9.15,9.25
-14/06/2024,9.15,9.25
-15/06/2024,9.15,9.25
-16/06/2024,9.15,9.25
-17/06/2024,9.18,9.28
-18/06/2024,9.2,9.3
-19/06/2024,9.22,9.32
-20/06/2024,9.25,9.35
-21/06/2024,9.25,9.35
-22/06/2024,9.25,9.35
-23/06/2024,9.25,9.35
-24/06/2024,9.28,9.38
-25/06/2024,9.3,9.4
-26/06/2024,9.3,9.4
-27/06/2024,9.32,9.42`;
-
         // --- CHART SETUP ---
         const container = document.getElementById('chart-container');
         const margin = {top: 20, right: 60, bottom: 40, left: 60};
@@ -158,63 +124,96 @@
         const svg = d3.select("#candlestick-chart");
         const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
         
-        // --- DATA PROCESSING ---
-        function simulateIntradayData(dailyData) {
-            const intradayData = [];
-            const intervals = 6; // 6 intervals of 4 hours = 24 hours
-            
-            let lastClose = +dailyData[0].Compra;
+        let processedData = []; // Para almacenar los datos cargados y procesados
 
-            dailyData.forEach(day => {
-                const dayDate = d3.timeParse("%d/%m/%Y")(day.Fecha);
-                if (!dayDate) return;
+        // --- DATA LOADING AND PROCESSING ---
+        // Parseador para la fecha y hora combinadas
+        const parseDateTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
-                const dailyOpen = lastClose;
-                const dailyClose = +day.Venta;
+        // Cargar el archivo CSV
+        d3.csv("data.csv").then(data => { // Asegúrate que 'data.csv' sea el nombre correcto de tu archivo
+            processedData = data.map(d => {
+                // Combinar Fecha y HORA para crear un solo objeto Date
+                const dateTimeStr = `${d.Fecha} ${d.HORA}`;
+                return {
+                    date: parseDateTime(dateTimeStr),
+                    open: +d.OPEN,  // El '+' convierte a número
+                    high: +d.MAX,
+                    low: +d.MIN,
+                    close: +d.CLOSE
+                };
+            }).filter(d => d.date && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close)); // Filtra entradas inválidas
 
-                let intervalOpen = dailyOpen;
+            // Ordenar los datos por fecha para asegurar que el gráfico se dibuje correctamente
+            processedData.sort((a, b) => a.date - b.date);
 
-                for (let i = 0; i < intervals; i++) {
-                    const intervalDate = d3.timeHour.offset(dayDate, i * 4);
-                    
-                    let intervalClose;
-                    if (i === intervals - 1) {
-                        intervalClose = dailyClose;
-                    } else {
-                        const progress = (i + 1) / intervals;
-                        const target = dailyOpen + (dailyClose - dailyOpen) * progress;
-                        intervalClose = target + (Math.random() - 0.5) * (dailyClose - dailyOpen) * 0.1;
-                    }
+            // Una vez que los datos están cargados y procesados, dibuja el gráfico
+            drawChart();
+            console.log("Datos cargados y procesados:", processedData);
 
-                    const high = Math.max(intervalOpen, intervalClose) * (1 + Math.random() * 0.001);
-                    const low = Math.min(intervalOpen, intervalClose) * (1 - Math.random() * 0.001);
-                    
-                    intradayData.push({
-                        date: intervalDate,
-                        open: intervalOpen,
-                        high: high,
-                        low: low,
-                        close: intervalClose
-                    });
-                    
-                    intervalOpen = intervalClose;
+            // --- Ejemplo de uso de la función findClosestCandleToTime con tus datos reales ---
+            // Asumiendo que quieres encontrar la vela más cercana a las 17:00 del último día de tus datos
+            if (processedData.length > 0) {
+                const lastDateInDataset = processedData[processedData.length - 1].date;
+                const targetDateForSearch = new Date(lastDateInDataset.getFullYear(), lastDateInDataset.getMonth(), lastDateInDataset.getDate());
+                
+                const closestCandle1700 = findClosestCandleToTime(processedData, targetDateForSearch, 17, 0, 0);
+
+                if (closestCandle1700) {
+                    console.log(`Vela más cercana a las 17:00 del ${d3.timeFormat("%d/%m/%Y")(targetDateForSearch)}:`);
+                    console.log("Fecha/Hora:", d3.timeFormat("%Y-%m-%d %H:%M:%S")(closestCandle1700.date));
+                    console.log("Open:", closestCandle1700.open.toFixed(3));
+                    console.log("High:", closestCandle1700.high.toFixed(3));
+                    console.log("Low:", closestCandle1700.low.toFixed(3));
+                    console.log("Close:", closestCandle1700.close.toFixed(3));
+                } else {
+                    console.log(`No se encontró una vela para la fecha ${d3.timeFormat("%d/%m/%Y")(targetDateForSearch)} o en el rango especificado.`);
                 }
-                lastClose = dailyClose;
-            });
-            return intradayData;
-        }
+            }
 
-        const dailyData = d3.csvParse(csvData);
-        let processedData = [];
-        if (dailyData.length > 0) {
-            processedData = simulateIntradayData(dailyData);
+        }).catch(error => {
+            console.error('Error al cargar o procesar el CSV:', error);
+            document.getElementById('chart-container').innerHTML = '<p style="color: red;">Error al cargar los datos del gráfico. Asegúrate de que el archivo CSV exista y tenga el formato correcto.</p>';
+        });
+
+
+        // --- NEW FUNCTION: Find the closest candle to a specific time on a given date ---
+        function findClosestCandleToTime(data, targetDate, targetHour, targetMinute, targetSecond) {
+            const targetTimeMillis = (targetHour * 3600 + targetMinute * 60 + targetSecond) * 1000; 
+
+            let closestCandle = null;
+            let minDifference = Infinity;
+
+            data.forEach(d => {
+                const candleDate = new Date(d.date);
+                // Asegurarse de comparar solo la parte de la fecha (año, mes, día)
+                if (candleDate.getFullYear() === targetDate.getFullYear() &&
+                    candleDate.getMonth() === targetDate.getMonth() &&
+                    candleDate.getDate() === targetDate.getDate()) {
+                    
+                    const candleTimeMillis = (candleDate.getHours() * 3600 + candleDate.getMinutes() * 60 + candleDate.getSeconds()) * 1000;
+                    const difference = Math.abs(candleTimeMillis - targetTimeMillis);
+
+                    // Para el valor más reciente en un rango de tiempo, podrías ordenar primero
+                    // y luego tomar el último, pero para 'el más cercano', este enfoque es directo.
+                    // Si buscas el más reciente EN ese rango (ej. 17:00-17:59),
+                    // primero filtra por rango, y luego ordena por fecha/hora descendente y toma el primero.
+
+                    if (difference < minDifference) {
+                        minDifference = difference;
+                        closestCandle = d;
+                    }
+                }
+            });
+            return closestCandle;
         }
 
         // --- SCALES & AXES ---
         const x = d3.scaleBand().padding(0.2);
         const y = d3.scaleLinear();
-        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b %Hh"));
-        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(2)}`);
+        // Ajustar el formato del tick del eje X para mostrar Fecha y Hora
+        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b %H:%M")); 
+        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(3)}`); // Aumentar precisión si es necesario
         
         const xAxisGroup = g.append("g").attr("class", "x-axis");
         const yAxisGroup = g.append("g").attr("class", "y-axis");
@@ -234,6 +233,12 @@
         
         // --- DRAWING FUNCTION ---
         function drawChart() {
+            // Solo dibujar si processedData tiene elementos
+            if (processedData.length === 0) {
+                console.warn("No hay datos para dibujar el gráfico.");
+                return;
+            }
+
             width = container.clientWidth - margin.left - margin.right;
             height = (container.clientWidth * 0.5 > 600 ? 600 : container.clientWidth * 0.5) - margin.top - margin.bottom;
             
@@ -247,10 +252,10 @@
             const yMax = d3.max(processedData, d => d.high);
 
             if (yMin !== undefined && yMax !== undefined) {
-                const padding = (yMax - yMin) * 0.1 || yMin * 0.1; // Add padding, handle case where min=max
+                const padding = (yMax - yMin) * 0.1 || yMin * 0.1; 
                 y.domain([yMin - padding, yMax + padding]).range([height, 0]);
             } else {
-                y.domain([8, 10]).range([height, 0]); // Default domain
+                y.domain([8.9, 9.5]).range([height, 0]); // Default domain si los datos están vacíos
             }
             
             yAxisLabel
@@ -264,9 +269,9 @@
             yGridLines.call(d3.axisLeft(y).tickSize(-width).tickFormat("")).selectAll("line").attr("class", "tick");
             yGridLines.select(".domain").remove();
             
-            updateTicks(); // Call function to set initial ticks
+            updateTicks(); 
 
-            chartBody.selectAll("g.candle").remove();
+            chartBody.selectAll("g.candle").remove(); // Limpiar velas antiguas antes de redibujar
             const candles = chartBody.selectAll("g.candle").data(processedData, d => d.date).enter().append("g").attr("class", "candle");
             candles.append("line").attr("class", "wick");
             candles.append("rect").attr("class", "body");
@@ -289,30 +294,45 @@
 
         function updateTicks(scale) {
             if (!scale) scale = x;
-            const tickCount = Math.floor(width / 120);
-            
-            const visibleData = processedData.filter(d => {
-                const pos = scale(d.date);
-                return pos !== undefined && pos >= 0 && pos < width;
-            });
-            
-            const step = Math.max(1, Math.ceil(visibleData.length / tickCount));
-            const tickValues = visibleData
-                .filter((d, i) => i % step === 0)
+            const tickCount = Math.floor(width / 120); // Número aproximado de ticks
+
+            // Obtener todas las fechas visibles
+            const visibleDataDates = processedData
+                .filter(d => {
+                    const pos = scale(d.date);
+                    return pos !== undefined && pos >= 0 && pos < width;
+                })
                 .map(d => d.date);
+            
+            // Si no hay datos visibles, salir
+            if (visibleDataDates.length === 0) {
+                xAxis.tickValues([]);
+                xAxisGroup.call(xAxis.scale(scale));
+                return;
+            }
+
+            // D3 time ticks para mejor manejo de fechas y horas
+            const timeInterval = d3.timeMinute.every(30); // Mostrar ticks cada 30 minutos, ajusta según tu densidad
+            const tickValues = timeInterval.range(visibleDataDates[0], d3.timeMinute.offset(visibleDataDates[visibleDataDates.length - 1], 1));
             
             xAxis.tickValues(tickValues);
             xAxisGroup.call(xAxis.scale(scale));
         }
 
+
         // --- INTERACTION HANDLERS ---
         function handleMouseMove(event) {
             if(processedData.length === 0) return;
             const logicalX = lastTransform.invertX(d3.pointer(event)[0]);
-            const bandWidth = x.step();
-            const index = Math.floor(logicalX / bandWidth);
-            const clampedIndex = Math.max(0, Math.min(processedData.length - 1, index));
-            const d = processedData[clampedIndex];
+            
+            // Encuentra la fecha más cercana al puntero
+            const closestDate = x.domain().reduce((prev, curr) => {
+                return (Math.abs(x(curr) + x.bandwidth() / 2 - logicalX) < Math.abs(x(prev) + x.bandwidth() / 2 - logicalX) ? curr : prev);
+            });
+            
+            // Encuentra el objeto de datos correspondiente a esa fecha
+            const d = processedData.find(item => item.date.getTime() === closestDate.getTime());
+            
             if (!d) return;
 
             const [mx, my] = d3.pointer(event);
@@ -325,12 +345,12 @@
             tooltip.style("opacity", .9);
             const colorClass = d.close >= d.open ? "color-up" : "color-down";
             tooltip.html(`
-                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y - %H:%M")(d.date)}</div>
+                <div class="tooltip-date">${d3.timeFormat("%A, %b %d, %Y - %H:%M:%S")(d.date)}</div>
                 <div class="tooltip-info">
-                    <span class="${colorClass}">Open:</span><span class="value">${d.open.toFixed(3)}</span><br>
-                    <span class="${colorClass}">High:</span><span class="value">${d.high.toFixed(3)}</span><br>
-                    <span class="${colorClass}">Low:</span><span class="value">${d.low.toFixed(3)}</span><br>
-                    <span class="${colorClass}">Close:</span><span class="value">${d.close.toFixed(3)}</span>
+                    <span class="${colorClass}">Open:</span><span class="value">${d.open.toFixed(4)}</span><br>
+                    <span class="${colorClass}">High:</span><span class="value">${d.high.toFixed(4)}</span><br>
+                    <span class="${colorClass}">Low:</span><span class="value">${d.low.toFixed(4)}</span><br>
+                    <span class="${colorClass}">Close:</span><span class="value">${d.close.toFixed(4)}</span>
                 </div>
             `).style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
         }
@@ -349,11 +369,13 @@
         }
 
         const zoom = d3.zoom().scaleExtent([0.5, 50]).translateExtent([[-width, -Infinity], [width * 10, Infinity]]).on("zoom", zoomed);
-        svg.call(zoom);
+        // Aplica el zoom al svg entero
+        svg.call(zoom); 
+        // El interactionRect para detectar movimientos de mouse y tooltips
         interactionRect.on("mousemove", handleMouseMove).on("mouseout", handleMouseOut);
 
         // --- INITIALIZATION ---
-        drawChart();
+        // drawChart() ahora se llama dentro del .then() de d3.csv
         window.addEventListener('resize', drawChart);
 
     </script>
