@@ -141,6 +141,32 @@
         
         let processedData = []; // Almacenará los datos cargados y procesados
 
+        // --- ESCALAS Y EJES ---
+        const x = d3.scaleBand().padding(0.2); // Escala para el eje X (bandas para cada vela)
+        const y = d3.scaleLinear(); // Escala para el eje Y (valores de precio)
+
+        // Eje X: Muestra la fecha en formato día-mes-año
+        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b-%Y")); 
+        // Eje Y: Muestra el precio con 4 decimales
+        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(4)}`); 
+        
+        const xAxisGroup = g.append("g").attr("class", "x-axis");
+        const yAxisGroup = g.append("g").attr("class", "y-axis");
+        const yGridLines = g.append("g").attr('class', 'grid');
+        const yAxisLabel = g.append("text").attr("class", "axis-label");
+        
+        // --- ELEMENTOS DE INTERFAZ DE USUARIO (DECLARADOS E INICIALIZADOS AQUÍ) ---
+        // Estas variables deben estar en un ámbito accesible antes de que drawChart las use.
+        const clipPath = svg.append("defs").append("clipPath").attr("id", "clip").append("rect");
+        const chartBody = g.append("g").attr("clip-path", "url(#clip)");
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+        const crosshair = g.append('g').style('display', 'none');
+        crosshair.append('line').attr('class', 'crosshair crosshair-x');
+        crosshair.append('line').attr('class', 'crosshair crosshair-y');
+        
+        let lastTransform = d3.zoomIdentity; // Almacena el estado actual del zoom/pan
+        const interactionRect = g.append("rect").style("fill", "none").style("pointer-events", "all"); // Rectángulo invisible para interacciones
+
         // --- DATOS CSV SIMULADOS ---
         // Estos son los datos que proporcionaste, incrustados para simulación.
         // Una vez que confirmes que funciona, te indicaré cómo cargar desde un archivo externo.
@@ -183,9 +209,9 @@
 26/8/2024;10.75;10.73;10.7;10.7
 27/8/2024;10.7;10.88;10.77;10.68
 28/8/2024;10.77;10.82;10.78;10.72
-29/8/2024;10.8;10.87;10.84;10.78
-30/8/2024;10.82;10.81;10.79;10.8
-31/8/2024;10.78;10.72;10.7;10.75
+29/7/2024;10.8;10.87;10.84;10.78
+30/7/2024;10.82;10.81;10.79;10.8
+31/7/2024;10.78;10.72;10.7;10.75
 1/9/2024;10.71;10.69;10.67;10.66
 2/9/2024;10.66;10.7;10.68;10.64
 3/9/2024;10.69;10.72;10.68;10.67
@@ -194,7 +220,7 @@
 6/9/2024;10.46;10.44;10.41;10.33
 7/9/2024;10.37;10.04;10.01;10.35
 8/9/2024;10.03;10.42;10.17;10.02
-9/9/2024;10.23;10.25;10.14;10.23
+9/8/2024;10.23;10.25;10.14;10.23
 10/9/2024;10.16;10.3;10.17;10.14
 11/9/2024;10.27;10.56;10.45;10.22
 12/9/2024;10.53;10.75;10.62;10.47
@@ -217,7 +243,7 @@
 29/9/2024;10.53;10.55;10.54;10.51`;
 
         // --- CARGA Y PROCESAMIENTO DE DATOS ---
-        // Función para parsear fechas en formatos YYYY-MM-DD o DD/MM/YYYY
+        // Función para parsear fechas en formatos,"%Y-%m-%d" o "%d/%m/%Y"
         const parseDate = (dateString) => {
             let parsed = d3.timeParse("%Y-%m-%d")(dateString); // Intenta YYYY-MM-DD
             if (!parsed) {
@@ -274,31 +300,6 @@
         }
 
 
-        // --- ESCALAS Y EJES ---
-        const x = d3.scaleBand().padding(0.2); // Escala para el eje X (bandas para cada vela)
-        const y = d3.scaleLinear(); // Escala para el eje Y (valores de precio)
-
-        // Eje X: Muestra la fecha en formato día-mes-año
-        const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%d-%b-%Y")); 
-        // Eje Y: Muestra el precio con 4 decimales
-        const yAxis = d3.axisLeft(y).tickFormat(d => `${d.toFixed(4)}`); 
-        
-        const xAxisGroup = g.append("g").attr("class", "x-axis");
-        const yAxisGroup = g.append("g").attr("class", "y-axis");
-        const yGridLines = g.append("g").attr('class', 'grid');
-        const yAxisLabel = g.append("text").attr("class", "axis-label");
-        
-        // --- ELEMENTOS DE INTERFAZ DE USUARIO ---
-        const clipPath = svg.append("defs").append("clipPath").attr("id", "clip").append("rect");
-        const chartBody = g.append("g").attr("clip-path", "url(#clip)");
-        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
-        const crosshair = g.append('g').style('display', 'none');
-        crosshair.append('line').attr('class', 'crosshair crosshair-x');
-        crosshair.append('line').attr('class', 'crosshair crosshair-y');
-        
-        let lastTransform = d3.zoomIdentity; // Almacena el estado actual del zoom/pan
-        const interactionRect = g.append("rect").style("fill", "none").style("pointer-events", "all"); // Rectángulo invisible para interacciones
-        
         // --- FUNCIÓN DE DIBUJO DEL GRÁFICO ---
         function drawChart() {
             // Solo dibujar si processedData tiene elementos
